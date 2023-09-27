@@ -1,7 +1,8 @@
 `default_nettype none
 
 parameter BITS = 32;
-parameter ADDR_BITS = 5;
+parameter BITS_IDX = BITS - 1;       // upper index of the workhorse register
+parameter ADDR_BITS = 4;
 parameter ADDR_IDX = ADDR_BITS - 1;  // upper index of address bits
 
 /*
@@ -26,12 +27,25 @@ IO
 
 */
 
-// module collatz (
-//     input  wire clk,
-//     input  wire write_enable
-// );
-//     reg [BITS:0] num;
-// endmodule
+module collatz (
+    input  clk,
+    input  reset,
+    input  state,
+    input  [BITS_IDX:0] number,
+    output reg [BITS_IDX:0] orbit_len,
+    output reg [BITS_IDX:0] path_record
+);
+    always @(posedge clk)
+    begin
+        if (reset) begin
+            orbit_len <= 32'h00000000;
+            path_record <= 0;
+        end
+
+        orbit_len <= 13;
+        path_record <= 32'hdeadbeef;
+    end
+endmodule
 
 module tt_um_rtfb_collatz (
     input  wire [7:0] ui_in,    // Dedicated inputs - connected to the input switches
@@ -44,7 +58,9 @@ module tt_um_rtfb_collatz (
     input  wire       rst_n     // reset_n - low to reset
 );
     wire reset = !rst_n;
-    reg [BITS:0] num;
+    reg [BITS_IDX:0] num;
+    reg [BITS_IDX:0] orbit_len;
+    reg [BITS_IDX:0] path_record;
 
     localparam IOCTL_COMPUTE = 8'h80;
     localparam IOCTL_IO = 8'h00;
@@ -62,6 +78,7 @@ module tt_um_rtfb_collatz (
     wire state_bit;
     wire iomode_bit;
     wire [ADDR_IDX:0] addr;
+    wire read_path_record;
 
     always @(posedge clk)
     begin
@@ -81,20 +98,29 @@ module tt_um_rtfb_collatz (
         end
 
         if (iomode_bit) begin
-            data_out <= num[addr*8 +: 8];
+            if (read_path_record) begin
+                data_out <= path_record[addr*8 +: 8];
+            end else begin
+                data_out <= orbit_len[addr*8 +: 8];
+            end
         end else begin
-            num[addr[3:0]*8 +: 8] <= data_in;
+            num[addr*8 +: 8] <= data_in;
         end
     end
 
-//     collatz collatz(
-//         .clk(clk),
-//         .write_enable(write_enable)
-//     );
+    collatz collatz(
+        .clk(clk),
+        .reset(reset),
+        .state(state),
+        .number(num),
+        .orbit_len(orbit_len),
+        .path_record(path_record)
+    );
 
     assign data_in = ui_in;
     assign uo_out = data_out;
     assign state_bit = uio_in[6];
     assign iomode_bit = uio_in[7];
     assign addr = uio_in[ADDR_IDX:0];
+    assign read_path_record = uio_in[4];
 endmodule
