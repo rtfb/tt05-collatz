@@ -34,7 +34,7 @@ module collatz (
     input  reset,
     input  state,
     input  [BITS_IDX:0] number,
-    output reg done,
+    output reg busy,
     output reg [BITS_IDX:0] orbit_len,
     output reg [BITS_IDX:0] path_record
 );
@@ -47,35 +47,31 @@ module collatz (
             orbit_len <= 32'h00000000;
             path_record <= 0;
             iter <= 0;
-            done <= 0;
+            busy <= 0;
         end
 
-        if (is_even) begin
-            iter <= iter >> 1;
-        end else begin
-            iter <= iter << 1 + iter + 1;
-        end
+        if (state == STATE_COMPUTE) begin
+            if (is_even) begin
+                iter <= iter >> 1;
+            end else begin
+                iter <= (iter << 1) + iter + 1;
+            end
 
-        if (iter > path_record) begin
-            path_record <= iter;
-        end
+            if (iter > path_record) begin
+                path_record <= iter;
+            end
 
-        if (iter == 1) begin
-            done <= 1;
-        end
-
-        if (state) begin
+            if (iter == 1) begin
+                busy <= 0;
+            end
             orbit_len <= orbit_len + 1;
         end
-
-        // orbit_len <= 13;
-        // path_record <= 32'hdeadbeef;
     end
 
     always @(posedge state)
     begin
         iter <= number;
-        done <= 0;
+        busy <= 1;
     end
 endmodule
 
@@ -98,11 +94,11 @@ module tt_um_rtfb_collatz (
     localparam IOCTL_IO = 8'h00;
 
     reg state;          // 0 - IO, 1 - COMPUTE
-    reg compute_done;
+    wire compute_busy;
     reg [7:0] ioctl;
 
     assign uio_oe = ioctl;
-    assign uio_out[7:0] = {8{1'b0}}; // Initialise unused outputs of the BIDIRECTIONAL path to 0 for posterity (otherwise Yosys fails)
+    assign uio_out = {compute_busy, 7'b0};
 
     wire [7:0] data_in;
     reg [7:0] data_out;
@@ -138,7 +134,7 @@ module tt_um_rtfb_collatz (
         end
     end
 
-    always @(posedge compute_done)
+    always @(negedge compute_busy)
     begin
         ioctl <= IOCTL_IO;
         state <= STATE_IO;
@@ -149,7 +145,7 @@ module tt_um_rtfb_collatz (
         .reset(reset),
         .state(state),
         .number(num),
-        .done(compute_done),
+        .busy(compute_busy),
         .orbit_len(orbit_len),
         .path_record(path_record)
     );
