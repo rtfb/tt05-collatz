@@ -9,33 +9,32 @@ async def test_collatz(dut):
     clock = Clock(dut.clk, 10, units="us")
     cocotb.start_soon(clock.start())
 
-    # reset
-    dut._log.info("reset")
-    dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 2)
-    dut.rst_n.value = 1
-    await ClockCycles(dut.clk, 2)
+    tests = [
+        (8, 4, 8),
+        (5, 6, 16),
+        (57, 33, 196),
+        (578745, 129, 1953268),
+        (87234789, 113, 261704368),
+    ]
 
-    await set_input(dut, 8)
-    await done_computing(dut)
+    for t in tests:
+        input, want_orbit, want_record = t
 
-    orbit_len, path_record = await read_output(dut)
-    assert orbit_len == 4
-    assert path_record == 8
+        # reset
+        dut._log.info("reset")
+        dut.rst_n.value = 0
+        await ClockCycles(dut.clk, 2)
+        dut.rst_n.value = 1
+        await ClockCycles(dut.clk, 2)
 
-    # reset
-    dut._log.info("reset")
-    dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 2)
-    dut.rst_n.value = 1
-    await ClockCycles(dut.clk, 2)
+        # set input
+        await set_input(dut, input)
+        await done_computing(dut)
 
-    await set_input(dut, 5)
-    await done_computing(dut)
-
-    orbit_len, path_record = await read_output(dut)
-    assert orbit_len == 6
-    assert path_record == 16
+        # read output and assert
+        orbit_len, path_record = await read_output(dut)
+        assert orbit_len == want_orbit
+        assert path_record == want_record
 
 
 async def set_input(dut, input):
@@ -51,13 +50,9 @@ async def done_computing(dut):
     dut.uio_in.value = 0x40
     await ClockCycles(dut.clk, 2)
     dut.uio_in.value = 0x00
-    i = 0
     while int(dut.uio_out.value) == 0x80:
-        dut._log.info("waiting...")
+        # dut._log.info("waiting...")
         await ClockCycles(dut.clk, 1)
-        i += 1
-        if i > 30:
-            break
     await ClockCycles(dut.clk, 1)
 
 
