@@ -16,16 +16,21 @@ async def test_collatz(dut):
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 10)
 
-    bytes = [0x34, 0x12, 0xcd, 0xab]  # 0xabcd1234
+    bytes = [0x8, 0, 0, 0]
 
     for i in range(4):
         dut.uio_in.value = i
         dut.ui_in = bytes[i]
         await ClockCycles(dut.clk, 10)
 
+    dut.uio_in.value = 0x40
+    await ClockCycles(dut.clk, 2)
+    dut.uio_in.value = 0x00
+    await ClockCycles(dut.clk, 30)
+
     dut.uio_in.value = 0x80
     await ClockCycles(dut.clk, 10)
-    assert int(dut.uo_out.value) == 13
+    assert int(dut.uo_out.value) == 4
 
     await ClockCycles(dut.clk, 10)
     path_rec = 0
@@ -37,4 +42,4 @@ async def test_collatz(dut):
         dut._log.info(hex(b))
         path_rec |= b << (i*8)
 
-    assert path_rec == 0xdeadbeef
+    assert path_rec == 8

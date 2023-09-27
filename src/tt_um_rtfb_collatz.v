@@ -4,6 +4,8 @@ parameter BITS = 32;
 parameter BITS_IDX = BITS - 1;       // upper index of the workhorse register
 parameter ADDR_BITS = 4;
 parameter ADDR_IDX = ADDR_BITS - 1;  // upper index of address bits
+parameter STATE_IO = 0;
+parameter STATE_COMPUTE = 1;
 
 /*
 The module can be in 2 states: IO, COMPUTE.
@@ -32,18 +34,48 @@ module collatz (
     input  reset,
     input  state,
     input  [BITS_IDX:0] number,
+    output reg done,
     output reg [BITS_IDX:0] orbit_len,
     output reg [BITS_IDX:0] path_record
 );
+    reg [BITS_IDX:0] iter;
+    wire is_even = !iter[0];
+
     always @(posedge clk)
     begin
         if (reset) begin
             orbit_len <= 32'h00000000;
             path_record <= 0;
+            iter <= 0;
+            done <= 0;
         end
 
-        orbit_len <= 13;
-        path_record <= 32'hdeadbeef;
+        if (is_even) begin
+            iter <= iter >> 1;
+        end else begin
+            iter <= iter << 1 + iter + 1;
+        end
+
+        if (iter > path_record) begin
+            path_record <= iter;
+        end
+
+        if (iter == 1) begin
+            done <= 1;
+        end
+
+        if (state) begin
+            orbit_len <= orbit_len + 1;
+        end
+
+        // orbit_len <= 13;
+        // path_record <= 32'hdeadbeef;
+    end
+
+    always @(posedge state)
+    begin
+        iter <= number;
+        done <= 0;
     end
 endmodule
 
@@ -64,10 +96,9 @@ module tt_um_rtfb_collatz (
 
     localparam IOCTL_COMPUTE = 8'h80;
     localparam IOCTL_IO = 8'h00;
-    localparam STATE_IO = 0;
-    localparam STATE_COMPUTE = 1;
 
     reg state;          // 0 - IO, 1 - COMPUTE
+    reg compute_done;
     reg [7:0] ioctl;
 
     assign uio_oe = ioctl;
@@ -89,23 +120,28 @@ module tt_um_rtfb_collatz (
             data_out <= 0;
         end
 
-        if (state == STATE_IO && state_bit) begin
-            ioctl <= IOCTL_COMPUTE;
-            state <= 1;
-        end else begin
-            ioctl <= IOCTL_IO;
-            state <= 0;
-        end
-
-        if (iomode_bit) begin
-            if (read_path_record) begin
-                data_out <= path_record[addr*8 +: 8];
+        if (state == STATE_IO) begin
+            if (state_bit) begin
+                ioctl <= IOCTL_COMPUTE;
+                state <= STATE_COMPUTE;
             end else begin
-                data_out <= orbit_len[addr*8 +: 8];
+                if (iomode_bit) begin
+                    if (read_path_record) begin
+                        data_out <= path_record[addr*8 +: 8];
+                    end else begin
+                        data_out <= orbit_len[addr*8 +: 8];
+                    end
+                end else begin
+                    num[addr*8 +: 8] <= data_in;
+                end
             end
-        end else begin
-            num[addr*8 +: 8] <= data_in;
         end
+    end
+
+    always @(posedge compute_done)
+    begin
+        ioctl <= IOCTL_IO;
+        state <= STATE_IO;
     end
 
     collatz collatz(
@@ -113,6 +149,7 @@ module tt_um_rtfb_collatz (
         .reset(reset),
         .state(state),
         .number(num),
+        .done(compute_done),
         .orbit_len(orbit_len),
         .path_record(path_record)
     );
