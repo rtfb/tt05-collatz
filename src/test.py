@@ -12,12 +12,17 @@ async def test_collatz(dut):
     # reset
     dut._log.info("reset")
     dut.rst_n.value = 0
-    # set the compare value
-    dut.ui_in.value = 1
     await ClockCycles(dut.clk, 10)
     dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 10)
 
-    assert int(dut.uo_out.value) == 0
+    bytes = [0x34, 0x12, 0xcd, 0xab]  # 0xabcd1234
 
-    await ClockCycles(dut.clk, 2)
-    assert int(dut.uo_out.value) == 255
+    for i in range(4):
+        dut.uio_in.value = i
+        dut.ui_in = bytes[i]
+        await ClockCycles(dut.clk, 10)
+
+    dut.uio_in.value = 0x82
+    await ClockCycles(dut.clk, 10)
+    assert int(dut.uo_out.value) == 0xcd
