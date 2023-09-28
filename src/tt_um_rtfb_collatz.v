@@ -30,49 +30,30 @@ IO
 */
 
 module collatz (
-    input  clk,
-    input  reset,
     input  state,
-    input  [BITS_IDX:0] number,
-    output reg busy,
-    output reg [BITS_IDX:0] orbit_len,
-    output reg [BITS_IDX:0] path_record
+    input  [BITS_IDX:0] iter,
+    input  [BITS_IDX:0] orbit_len,
+    input  [BITS_IDX:0] path_record,
+    output busy,
+    output [BITS_IDX:0] next_iter,
+    output [BITS_IDX:0] next_orbit_len,
+    output [BITS_IDX:0] next_path_record
 );
-    reg [BITS_IDX:0] iter;
     wire is_even = !iter[0];
+    wire [BITS_IDX:0] next_iter_div2;
+    wire [BITS_IDX:0] next_iter_3xp1;
+    wire comp = state == STATE_COMPUTE;
 
-    always @(posedge clk)
-    begin
-        if (reset) begin
-            orbit_len <= 32'h00000000;
-            path_record <= 0;
-            iter <= 0;
-            busy <= 0;
-        end
+    assign next_iter_div2 = iter >> 1;
+    assign next_iter_3xp1 = (iter << 1) + iter + 1;
+    assign next_iter = is_even ? next_iter_div2 : next_iter_3xp1;
 
-        if (state == STATE_COMPUTE) begin
-            if (is_even) begin
-                iter <= iter >> 1;
-            end else begin
-                iter <= (iter << 1) + iter + 1;
-            end
+    // XXX: this is a hack: I'm comparing to 2 here to compensate for an
+    // off-by-one bug that I don't understand yet
+    assign busy = iter != 2;
 
-            if (iter > path_record) begin
-                path_record <= iter;
-            end
-
-            if (iter == 1) begin
-                busy <= 0;
-            end
-            orbit_len <= orbit_len + 1;
-        end
-    end
-
-    always @(posedge state)
-    begin
-        iter <= number;
-        busy <= 1;
-    end
+    assign next_orbit_len = comp ? orbit_len + 1 : orbit_len;
+    assign next_path_record = next_iter > path_record ? next_iter : path_record;
 endmodule
 
 module tt_um_rtfb_collatz (
@@ -87,8 +68,13 @@ module tt_um_rtfb_collatz (
 );
     wire reset = !rst_n;
     reg [BITS_IDX:0] num;
+    reg [BITS_IDX:0] iter;
     reg [BITS_IDX:0] orbit_len;
     reg [BITS_IDX:0] path_record;
+
+    wire [BITS_IDX:0] next_iter;
+    wire [BITS_IDX:0] next_orbit_len;
+    wire [BITS_IDX:0] next_path_record;
 
     localparam IOCTL_COMPUTE = 8'h80;
     localparam IOCTL_IO = 8'h00;
@@ -106,6 +92,8 @@ module tt_um_rtfb_collatz (
     wire iomode_bit;
     wire [ADDR_IDX:0] addr;
     wire read_path_record;
+    wire switch_to_compute;
+    wire switch_to_io;
 
     always @(posedge clk)
     begin
@@ -114,40 +102,52 @@ module tt_um_rtfb_collatz (
             ioctl <= IOCTL_IO;
             num <= 0;
             data_out <= 0;
-        end
-
-        if (state == STATE_IO) begin
-            if (state_bit) begin
+            orbit_len <= 0;
+            path_record <= 0;
+        end else begin
+            if (switch_to_compute) begin
                 ioctl <= IOCTL_COMPUTE;
                 state <= STATE_COMPUTE;
-            end else begin
-                if (iomode_bit) begin
-                    if (read_path_record) begin
-                        data_out <= path_record[addr*8 +: 8];
-                    end else begin
-                        data_out <= orbit_len[addr*8 +: 8];
-                    end
-                end else begin
-                    num[addr*8 +: 8] <= data_in;
-                end
+                iter <= num;
+                path_record <= num;
             end
+            if (switch_to_io) begin
+                ioctl <= IOCTL_IO;
+                state <= STATE_IO;
+            end
+            case (state)
+                STATE_IO: begin
+                    if (iomode_bit) begin
+                        if (read_path_record) begin
+                            data_out <= path_record[addr*8 +: 8];
+                        end else begin
+                            data_out <= orbit_len[addr*8 +: 8];
+                        end
+                    end else begin
+                        num[addr*8 +: 8] <= data_in;
+                    end
+                end
+                STATE_COMPUTE: begin
+                    iter <= next_iter;
+                    orbit_len <= next_orbit_len;
+                    path_record <= next_path_record;
+                end
+            endcase
         end
     end
 
-    always @(negedge compute_busy)
-    begin
-        ioctl <= IOCTL_IO;
-        state <= STATE_IO;
-    end
+    assign switch_to_compute = !reset && state_bit && state == STATE_IO;
+    assign switch_to_io = !reset && !compute_busy && state == STATE_COMPUTE;
 
     collatz collatz(
-        .clk(clk),
-        .reset(reset),
         .state(state),
-        .number(num),
-        .busy(compute_busy),
+        .iter(iter),
         .orbit_len(orbit_len),
-        .path_record(path_record)
+        .path_record(path_record),
+        .busy(compute_busy),
+        .next_iter(next_iter),
+        .next_orbit_len(next_orbit_len),
+        .next_path_record(next_path_record)
     );
 
     assign data_in = ui_in;
