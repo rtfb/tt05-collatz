@@ -34,23 +34,25 @@ module collatz (
     input  [BITS_IDX:0] iter,
     input  [BITS_IDX:0] orbit_len,
     input  [BITS_IDX:0] path_record,
+    input was_overflow,
     output busy,
     output [BITS_IDX:0] next_iter,
     output [BITS_IDX:0] next_orbit_len,
-    output [BITS_IDX:0] next_path_record
+    output [BITS_IDX:0] next_path_record,
+    output next_overflows
 );
     wire is_even = !iter[0];
-    wire [BITS_IDX:0] next_iter_div2;
-    wire [BITS_IDX:0] next_iter_3xp1;
     wire comp = state == STATE_COMPUTE;
+    wire [1:0] overflow_bits;
 
-    assign next_iter_div2 = iter >> 1;
-    assign next_iter_3xp1 = (iter << 1) + iter + 1;
-    assign next_iter = is_even ? next_iter_div2 : next_iter_3xp1;
+    assign {overflow_bits, next_iter} = is_even ?
+                                        iter >> 1 :
+                                        (iter << 1) + iter + 1;
+    assign next_overflows = was_overflow || overflow_bits != 2'b00;
 
     // XXX: this is a hack: I'm comparing to 2 here to compensate for an
     // off-by-one bug that I don't understand yet
-    assign busy = iter != 2;
+    assign busy = iter != 2 && !was_overflow;
 
     assign next_orbit_len = comp ? orbit_len + 1 : orbit_len;
     assign next_path_record = next_iter > path_record ? next_iter : path_record;
@@ -75,11 +77,13 @@ module tt_um_rtfb_collatz (
     wire [BITS_IDX:0] next_iter;
     wire [BITS_IDX:0] next_orbit_len;
     wire [BITS_IDX:0] next_path_record;
+    wire next_overflows;
 
     localparam IOCTL_COMPUTE = 8'h80;
     localparam IOCTL_IO = 8'h00;
 
     reg state;          // 0 - IO, 1 - COMPUTE
+    reg overflow;
     wire compute_busy;
     reg [7:0] ioctl;
 
@@ -104,6 +108,7 @@ module tt_um_rtfb_collatz (
             data_out <= 0;
             orbit_len <= 0;
             path_record <= 0;
+            overflow <= 0;
         end else begin
             if (switch_to_compute) begin
                 ioctl <= IOCTL_COMPUTE;
@@ -114,6 +119,9 @@ module tt_um_rtfb_collatz (
             if (switch_to_io) begin
                 ioctl <= IOCTL_IO;
                 state <= STATE_IO;
+                if (overflow) begin
+                    path_record <= 32'hbaadf00d;
+                end
             end
             case (state)
                 STATE_IO: begin
@@ -131,23 +139,26 @@ module tt_um_rtfb_collatz (
                     iter <= next_iter;
                     orbit_len <= next_orbit_len;
                     path_record <= next_path_record;
+                    overflow <= next_overflows;
                 end
             endcase
         end
     end
 
-    assign switch_to_compute = !reset && state_bit && state == STATE_IO;
-    assign switch_to_io = !reset && !compute_busy && state == STATE_COMPUTE;
+    assign switch_to_compute = !reset && state_bit && state == STATE_IO && !overflow;
+    assign switch_to_io = !reset && !compute_busy && state == STATE_COMPUTE || overflow;
 
     collatz collatz(
         .state(state),
         .iter(iter),
         .orbit_len(orbit_len),
         .path_record(path_record),
+        .was_overflow(overflow),
         .busy(compute_busy),
         .next_iter(next_iter),
         .next_orbit_len(next_orbit_len),
-        .next_path_record(next_path_record)
+        .next_path_record(next_path_record),
+        .next_overflows(next_overflows)
     );
 
     assign data_in = ui_in;
