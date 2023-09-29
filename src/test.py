@@ -38,13 +38,21 @@ async def test_collatz(dut):
         assert path_record == want_record
 
 
+async def set_address(dut, addr):
+    dut.uio_in.value = addr
+    await ClockCycles(dut.clk, 1)
+
+
+async def set_data_byte(dut, byte):
+    dut.ui_in.value = byte
+    await ClockCycles(dut.clk, 1)
+
+
 async def set_input(dut, input):
     for i in range(4):
-        dut.uio_in.value = i
-        by = (input >> (i*8)) & 0xff;
-        # dut._log.info(hex(by))
-        dut.ui_in.value = by
-        await ClockCycles(dut.clk, 2)
+        await set_address(dut, i)
+        byte = (input >> (i*8)) & 0xff;
+        await set_data_byte(dut, byte)
 
 
 async def done_computing(dut):
