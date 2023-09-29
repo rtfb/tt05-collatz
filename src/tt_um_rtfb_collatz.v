@@ -20,8 +20,8 @@ COMPUTE
                  this mode.
 IO
     uio_oe: 00xA AAAA
-    uio_in[7]  - set to 0 to indicate writing, set to 1 to indicate reading
-    uio_in[6]  - set to 1 to switch to COMPUTE mode
+    uio_in[7]  - pulse a 1 to write ui_in to AAAAA addr, set to 0 to indicate reading
+    uio_in[6]  - pulse a 1 to switch to COMPUTE mode
     AAAAA      - set to the address to write to or read from. When reading,
                  the highest bit indicates whether that's an orbit length (0)
                  or a path record (1), when writing, the highest bit is
@@ -89,7 +89,7 @@ module tt_um_rtfb_collatz (
     wire [7:0] data_in;
     reg [7:0] data_out;
     wire state_bit;
-    wire iomode_bit;
+    wire write_enable;
     wire [ADDR_IDX:0] addr;
     wire read_path_record;
     wire switch_to_compute;
@@ -117,14 +117,14 @@ module tt_um_rtfb_collatz (
             end
             case (state)
                 STATE_IO: begin
-                    if (iomode_bit) begin
+                    if (write_enable) begin
+                        num[addr*8 +: 8] <= data_in;
+                    end else begin
                         if (read_path_record) begin
                             data_out <= path_record[addr*8 +: 8];
                         end else begin
                             data_out <= orbit_len[addr*8 +: 8];
                         end
-                    end else begin
-                        num[addr*8 +: 8] <= data_in;
                     end
                 end
                 STATE_COMPUTE: begin
@@ -153,7 +153,7 @@ module tt_um_rtfb_collatz (
     assign data_in = ui_in;
     assign uo_out = data_out;
     assign state_bit = uio_in[6];
-    assign iomode_bit = uio_in[7];
+    assign write_enable = uio_in[7];
     assign addr = uio_in[ADDR_IDX:0];
     assign read_path_record = uio_in[4];
 endmodule
