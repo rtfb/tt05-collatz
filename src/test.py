@@ -161,7 +161,7 @@ async def done_computing(dut):
 async def read_output(dut):
     orbit_len = 0
 
-    for i in range(4):
+    for i in range(2):
         dut.uio_in.value = i
         await ClockCycles(dut.clk, 2)
         b = int(dut.uo_out.value)

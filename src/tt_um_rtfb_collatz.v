@@ -7,6 +7,9 @@ parameter ADDR_IDX = ADDR_BITS - 1;  // upper index of address bits
 parameter STATE_IO = 0;
 parameter STATE_COMPUTE = 1;
 
+parameter OLEN_BITS = 16;
+parameter OLEN_BITS_IDX = OLEN_BITS - 1;
+
 /*
 The module can be in 2 states: IO, COMPUTE.
 IO state has further 2 modes: INPUT and OUTPUT.
@@ -32,12 +35,12 @@ IO
 module collatz (
     input  state,
     input  [BITS_IDX:0] iter,
-    input  [BITS_IDX:0] orbit_len,
+    input  [OLEN_BITS_IDX:0] orbit_len,
     input  [BITS_IDX:0] path_record,
     input was_overflow,
     output busy,
     output [BITS_IDX:0] next_iter,
-    output [BITS_IDX:0] next_orbit_len,
+    output [OLEN_BITS_IDX:0] next_orbit_len,
     output [BITS_IDX:0] next_path_record,
     output next_overflows
 );
@@ -71,11 +74,11 @@ module tt_um_rtfb_collatz (
     wire reset = !rst_n;
     reg [BITS_IDX:0] num;
     reg [BITS_IDX:0] iter;
-    reg [BITS_IDX:0] orbit_len;
+    reg [OLEN_BITS_IDX:0] orbit_len;
     reg [BITS_IDX:0] path_record;
 
     wire [BITS_IDX:0] next_iter;
-    wire [BITS_IDX:0] next_orbit_len;
+    wire [OLEN_BITS_IDX:0] next_orbit_len;
     wire [BITS_IDX:0] next_path_record;
     wire next_overflows;
 
