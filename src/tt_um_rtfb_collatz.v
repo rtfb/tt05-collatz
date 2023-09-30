@@ -72,7 +72,6 @@ module tt_um_rtfb_collatz (
     input  wire       rst_n     // reset_n - low to reset
 );
     wire reset = !rst_n;
-    reg [BITS_IDX:0] num;
     reg [BITS_IDX:0] iter;
     reg [OLEN_BITS_IDX:0] orbit_len;
     reg [BITS_IDX:0] path_record;
@@ -107,7 +106,6 @@ module tt_um_rtfb_collatz (
         if (reset) begin
             state <= 0;
             ioctl <= IOCTL_IO;
-            num <= 0;
             data_out <= 0;
             orbit_len <= 0;
             path_record <= 0;
@@ -116,8 +114,7 @@ module tt_um_rtfb_collatz (
             if (switch_to_compute) begin
                 ioctl <= IOCTL_COMPUTE;
                 state <= STATE_COMPUTE;
-                iter <= num;
-                path_record <= num;
+                path_record <= iter;
             end
             if (switch_to_io) begin
                 ioctl <= IOCTL_IO;
@@ -129,7 +126,7 @@ module tt_um_rtfb_collatz (
             case (state)
                 STATE_IO: begin
                     if (write_enable) begin
-                        num[addr*8 +: 8] <= data_in;
+                        iter[addr*8 +: 8] <= data_in;
                     end else begin
                         if (read_path_record) begin
                             data_out <= path_record[addr*8 +: 8];
