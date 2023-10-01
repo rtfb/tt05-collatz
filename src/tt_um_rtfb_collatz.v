@@ -1,6 +1,6 @@
 `default_nettype none
 
-parameter BITS = 32;
+parameter BITS = 64;
 parameter BITS_IDX = BITS - 1;       // upper index of the workhorse register
 parameter ADDR_BITS = 4;
 parameter ADDR_IDX = ADDR_BITS - 1;  // upper index of address bits
