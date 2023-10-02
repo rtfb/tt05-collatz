@@ -6,6 +6,10 @@ from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles
 BITS = 144
 BYTES = BITS >> 3
 OVERFLOW_MAGIC = 0xbaadf00d
+READ_PATH_RECORD_BIT = 1 << 5
+START_COMPUTING_BIT = 1 << 6
+DONE_COMPUTING_BIT = 1 << 7
+WRITE_ENABLE_BIT = 1 << 7
 
 
 @cocotb.test()
@@ -161,6 +165,7 @@ async def test_collatz(dut):
 
         # set input
         await set_input(dut, input)
+        await start_computing(dut)
         await done_computing(dut)
 
         # read output and assert
@@ -178,44 +183,44 @@ def check_overflow(want_record):
     return binary_repr > BITS
 
 
+async def pulse_write_enable(dut):
+    dut.uio_in.value |= WRITE_ENABLE_BIT
+    await ClockCycles(dut.clk, 1)
+    dut.uio_in.value &= ~WRITE_ENABLE_BIT
+
+
 async def set_input(dut, input):
     for i in range(BYTES):
         byte = (input >> (i*8)) & 0xff;
         dut.uio_in.value = i
         dut.ui_in.value = byte
         await ClockCycles(dut.clk, 1)
-        dut.uio_in.value |= 0x80
-        await ClockCycles(dut.clk, 1)
-        dut.uio_in.value &= ~0x80
+        await pulse_write_enable(dut)
+
+
+async def start_computing(dut):
+    dut.uio_in.value = START_COMPUTING_BIT
+    await ClockCycles(dut.clk, 2)
+    dut.uio_in.value = 0x00
 
 
 async def done_computing(dut):
-    dut.uio_in.value = 0x40
-    await ClockCycles(dut.clk, 2)
-    dut.uio_in.value = 0x00
-    while int(dut.uio_out.value) == 0x80:
-        # dut._log.info("waiting...")
+    while int(dut.uio_out.value) == DONE_COMPUTING_BIT:
         await ClockCycles(dut.clk, 1)
     await ClockCycles(dut.clk, 1)
 
 
+async def read_n_byte_num(dut, nbytes, extra_bits=0):
+    number = 0
+    for i in range(nbytes):
+        dut.uio_in.value = i | extra_bits
+        await ClockCycles(dut.clk, 2)
+        b = int(dut.uo_out.value)
+        number |= b << (i*8)
+    return number
+
+
 async def read_output(dut):
-    orbit_len = 0
-
-    for i in range(2):
-        dut.uio_in.value = i
-        await ClockCycles(dut.clk, 2)
-        b = int(dut.uo_out.value)
-        # dut._log.info(hex(b))
-        orbit_len |= b << (i*8)
-
-    path_rec = 0
-
-    for i in range(BYTES):
-        dut.uio_in.value = 0x20 + i
-        await ClockCycles(dut.clk, 2)
-        b = int(dut.uo_out.value)
-        # dut._log.info(hex(b))
-        path_rec |= b << (i*8)
-
+    orbit_len = await read_n_byte_num(dut, 2)
+    path_rec = await read_n_byte_num(dut, BYTES, READ_PATH_RECORD_BIT)
     return orbit_len, path_rec
