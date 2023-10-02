@@ -1,8 +1,8 @@
 `default_nettype none
 
-parameter BITS = 64;
+parameter BITS = 144;
 parameter BITS_IDX = BITS - 1;       // upper index of the workhorse register
-parameter ADDR_BITS = 4;
+parameter ADDR_BITS = 5;
 parameter ADDR_IDX = ADDR_BITS - 1;  // upper index of address bits
 parameter STATE_IO = 0;
 parameter STATE_COMPUTE = 1;
@@ -22,10 +22,10 @@ COMPUTE
                  output and set a new input. All other bits are meaningless in
                  this mode.
 IO
-    uio_oe: 00xA AAAA
-    uio_in[7]  - pulse a 1 to write ui_in to AAAAA addr, set to 0 to indicate reading
+    uio_oe: 00AA AAAA
+    uio_in[7]  - pulse a 1 to write ui_in to AAAAAA addr, set to 0 to indicate reading
     uio_in[6]  - pulse a 1 to switch to COMPUTE mode
-    AAAAA      - set to the address to write to or read from. When reading,
+    AAAAAA     - set to the address to write to or read from. When reading,
                  the highest bit indicates whether that's an orbit length (0)
                  or a path record (1), when writing, the highest bit is
                  ignored.
@@ -166,5 +166,5 @@ module tt_um_rtfb_collatz (
     assign state_bit = uio_in[6];
     assign write_enable = uio_in[7];
     assign addr = uio_in[ADDR_IDX:0];
-    assign read_path_record = uio_in[4];
+    assign read_path_record = uio_in[ADDR_IDX+1];
 endmodule
