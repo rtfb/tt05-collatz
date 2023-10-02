@@ -36,29 +36,38 @@ module collatz (
     input  state,
     input  [BITS_IDX:0] iter,
     input  [OLEN_BITS_IDX:0] orbit_len,
-    input  [BITS_IDX:0] path_record,
-    input was_overflow,
+    input  [OLEN_BITS_IDX:0] path_record_h16,
+    // input was_overflow,
     output busy,
     output [BITS_IDX:0] next_iter,
     output [OLEN_BITS_IDX:0] next_orbit_len,
-    output [BITS_IDX:0] next_path_record,
-    output next_overflows
+    output [OLEN_BITS_IDX:0] next_path_record
+    // output next_overflows
 );
     wire is_even = !iter[0];
     wire comp = state == STATE_COMPUTE;
+    /*
     wire [1:0] overflow_bits;
 
     assign {overflow_bits, next_iter} = is_even ?
                                         iter >> 1 :
                                         (iter << 1) + iter + 1;
     assign next_overflows = was_overflow || overflow_bits != 2'b00;
+    */
+    assign next_iter = is_even ?
+                       iter >> 1 :
+                       (iter << 1) + iter + 1;
 
     // XXX: this is a hack: I'm comparing to 2 here to compensate for an
     // off-by-one bug that I don't understand yet
-    assign busy = iter != 2 && !was_overflow;
+    assign busy = iter != 2; // && !was_overflow;
 
+    wire [OLEN_BITS_IDX:0] next_iter_h16;
+    assign next_iter_h16 = next_iter[BITS_IDX -: OLEN_BITS];
     assign next_orbit_len = comp ? orbit_len + 1 : orbit_len;
-    assign next_path_record = next_iter > path_record ? next_iter : path_record;
+    assign next_path_record = comp && (next_iter_h16 > path_record_h16) ?
+                              next_iter_h16 :
+                              path_record_h16;
 endmodule
 
 module tt_um_rtfb_collatz (
@@ -74,18 +83,20 @@ module tt_um_rtfb_collatz (
     wire reset = !rst_n;
     reg [BITS_IDX:0] iter;
     reg [OLEN_BITS_IDX:0] orbit_len;
-    reg [BITS_IDX:0] path_record;
+    // reg [BITS_IDX:0] path_record;
+    reg [OLEN_BITS_IDX:0] path_record_h16;
 
     wire [BITS_IDX:0] next_iter;
     wire [OLEN_BITS_IDX:0] next_orbit_len;
-    wire [BITS_IDX:0] next_path_record;
-    wire next_overflows;
+    // wire [BITS_IDX:0] next_path_record;
+    wire [OLEN_BITS_IDX:0] next_path_record;
+    // wire next_overflows;
 
     localparam IOCTL_COMPUTE = 8'h80;
     localparam IOCTL_IO = 8'h00;
 
     reg state;          // 0 - IO, 1 - COMPUTE
-    reg overflow;
+    // reg overflow;
     wire compute_busy;
     reg [7:0] ioctl;
 
@@ -108,20 +119,20 @@ module tt_um_rtfb_collatz (
             ioctl <= IOCTL_IO;
             data_out <= 0;
             orbit_len <= 0;
-            path_record <= 0;
-            overflow <= 0;
+            path_record_h16 <= 0;
+            // overflow <= 0;
         end else begin
             if (switch_to_compute) begin
                 ioctl <= IOCTL_COMPUTE;
                 state <= STATE_COMPUTE;
-                path_record <= iter;
+                path_record_h16 <= iter[BITS_IDX -: OLEN_BITS];
             end
             if (switch_to_io) begin
                 ioctl <= IOCTL_IO;
                 state <= STATE_IO;
-                if (overflow) begin
-                    path_record <= 32'hbaadf00d;
-                end
+                // if (overflow) begin
+                //     path_record <= 32'hbaadf00d;
+                // end
             end
             case (state)
                 STATE_IO: begin
@@ -129,7 +140,7 @@ module tt_um_rtfb_collatz (
                         iter[addr*8 +: 8] <= data_in;
                     end else begin
                         if (read_path_record) begin
-                            data_out <= path_record[addr*8 +: 8];
+                            data_out <= path_record_h16[addr*8 +: 8];
                         end else begin
                             data_out <= orbit_len[addr*8 +: 8];
                         end
@@ -138,27 +149,27 @@ module tt_um_rtfb_collatz (
                 STATE_COMPUTE: begin
                     iter <= next_iter;
                     orbit_len <= next_orbit_len;
-                    path_record <= next_path_record;
-                    overflow <= next_overflows;
+                    path_record_h16 <= next_path_record;
+                    // overflow <= next_overflows;
                 end
             endcase
         end
     end
 
-    assign switch_to_compute = !reset && state_bit && state == STATE_IO && !overflow;
-    assign switch_to_io = !reset && !compute_busy && state == STATE_COMPUTE || overflow;
+    assign switch_to_compute = !reset && state_bit && state == STATE_IO; // && !overflow;
+    assign switch_to_io = !reset && !compute_busy && state == STATE_COMPUTE; // || overflow;
 
     collatz collatz(
         .state(state),
         .iter(iter),
         .orbit_len(orbit_len),
-        .path_record(path_record),
-        .was_overflow(overflow),
+        .path_record_h16(path_record_h16),
+        // .was_overflow(overflow),
         .busy(compute_busy),
         .next_iter(next_iter),
         .next_orbit_len(next_orbit_len),
-        .next_path_record(next_path_record),
-        .next_overflows(next_overflows)
+        .next_path_record(next_path_record)
+        // .next_overflows(next_overflows)
     );
 
     assign data_in = ui_in;
