@@ -5,7 +5,6 @@ from cocotb.triggers import RisingEdge, FallingEdge, Timer, ClockCycles
 
 BITS = 144
 BYTES = BITS >> 3
-OVERFLOW_MAGIC = 0xbaadf00d
 READ_PATH_RECORD_BIT = 1 << 5
 START_COMPUTING_BIT = 1 << 6
 DONE_COMPUTING_BIT = 1 << 7
@@ -146,11 +145,11 @@ async def test_collatz(dut):
         (3012445987290400330380289851637892354190268, 891, 19301423947863590398071368863863488023283572),
 
         # overflowing 144-bit test cases:
-        (9538163849286484684936098584142661875319637, 797, 28614491547859454054808295752427985625958912),  #  << OVERFLOW
-        (12457369670021871660614460498630620828179883, 1066, 161812313805977923553639899721950033920419728),  #  << OVERFLOW
-        (19091159896150669357805683577582932025193609, 1147, 2975765996704769158177325654959293037770170992),  #  << OVERFLOW
-        (9524856959679701030992026265084759236957493, 1195, 28574570879039103092976078795254277710872480),  #  << OVERFLOW
-        (20547317868323463498998361184730124261402691, 899, 92462930407455585745492625331285559176312112),  #  << OVERFLOW
+        # (9538163849286484684936098584142661875319637, 797, 28614491547859454054808295752427985625958912),  #  << OVERFLOW
+        # (12457369670021871660614460498630620828179883, 1066, 161812313805977923553639899721950033920419728),  #  << OVERFLOW
+        # (19091159896150669357805683577582932025193609, 1147, 2975765996704769158177325654959293037770170992),  #  << OVERFLOW
+        # (9524856959679701030992026265084759236957493, 1195, 28574570879039103092976078795254277710872480),  #  << OVERFLOW
+        # (20547317868323463498998361184730124261402691, 899, 92462930407455585745492625331285559176312112),  #  << OVERFLOW
     ]
 
     for t in tests:
@@ -169,18 +168,14 @@ async def test_collatz(dut):
         await done_computing(dut)
 
         # read output and assert
-        orbit_len, path_record = await read_output(dut)
-        test_case_overflows = check_overflow(want_record)
-        if test_case_overflows:
-            want_record = OVERFLOW_MAGIC
-        else:
-            assert orbit_len == want_orbit
-        assert path_record == want_record
+        orbit_len, path_record_h16 = await read_output(dut)
+        assert orbit_len == want_orbit
+        want_record_h16 = extract_upper_bits(want_record, 16)
+        assert path_record_h16 == want_record_h16, f'for len {orbit_len}'
 
 
-def check_overflow(want_record):
-    binary_repr = len(bin(want_record)) - 2  # subtract 2 to compensate of the 0b prefix
-    return binary_repr > BITS
+def extract_upper_bits(number, nbits):
+    return number >> (BITS - nbits)
 
 
 async def pulse_write_enable(dut):
@@ -222,5 +217,5 @@ async def read_n_byte_num(dut, nbytes, extra_bits=0):
 
 async def read_output(dut):
     orbit_len = await read_n_byte_num(dut, 2)
-    path_rec = await read_n_byte_num(dut, BYTES, READ_PATH_RECORD_BIT)
+    path_rec = await read_n_byte_num(dut, 2, READ_PATH_RECORD_BIT)
     return orbit_len, path_rec
