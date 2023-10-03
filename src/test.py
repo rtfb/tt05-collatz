@@ -178,6 +178,10 @@ def extract_upper_bits(number, nbits):
     return number >> (BITS - nbits)
 
 
+def extract_ith_byte(number, i):
+    return (number >> (i*8)) & 0xff
+
+
 async def pulse_write_enable(dut):
     dut.uio_in.value |= WRITE_ENABLE_BIT
     await ClockCycles(dut.clk, 1)
@@ -186,9 +190,9 @@ async def pulse_write_enable(dut):
 
 async def set_input(dut, input):
     for i in range(BYTES):
-        byte = (input >> (i*8)) & 0xff;
-        dut.uio_in.value = i
-        dut.ui_in.value = byte
+        data_byte = extract_ith_byte(input, i)
+        dut.uio_in.value = i         # set address of i'th byte
+        dut.ui_in.value = data_byte  # set the data byte
         await ClockCycles(dut.clk, 1)
         await pulse_write_enable(dut)
 
