@@ -34,3 +34,8 @@ MODULE = test
 
 # include cocotb's make rules to take care of the simulator setup
 include $(shell cocotb-config --makefiles)/Makefile.sim
+
+# NOTE: still needs venv activated due to the included makefile above
+.PHONY: gtkwave
+gtkwave:
+	gtkwave tb.vcd
