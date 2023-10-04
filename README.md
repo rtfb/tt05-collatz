@@ -10,8 +10,8 @@ it reaches 1. When it does, it allows reading back two numbers:
 
 The latter number is an indicator for good candidates for computing [path
 records][2]. The non-zero upper bits indicate that the highest iterator value
-`t(n)` is in the range of the previous path records and should be recomputed in
-the full offline. (Holding on to the entire 144 bits of `t(n)` number would be
+`Mx(N)` is in the range of the previous path records and should be recomputed in
+the full offline. (Holding on to the entire 144 bits of `Mx(N)` number would be
 more obvious, but this almost doubles the footprint of the design, hence, this
 optimisation).
 
@@ -42,7 +42,7 @@ When in IO mode, the pins act as follows:
 | ------------- | ---------------------------------------------------------- |
 | `uio_in[7]`   | pulse a 1 to write `ui_in` to the address in `uio_in[4:0]` |
 | `uio_in[6]`   | pulse a 1 to switch to COMPUTE mode                        |
-| `uio_in[5]`   | set to 0 to read orbit length, set to 1 to read the `t(n)` upper bits |
+| `uio_in[5]`   | set to 0 to read orbit length, set to 1 to read the `Mx(N)` upper bits |
 | `uio_in[4:0]` | set to the address to write to or read from                |
 
 See [`set_input()`][3], [`done_computing()`][4] and [`read_n_byte_num()`][5]
@@ -72,7 +72,7 @@ To learn more and get started, visit https://tinytapeout.com.
   - Twitter [#tinytapeout](https://twitter.com/hashtag/tinytapeout?src=hashtag_click) [@matthewvenn](https://twitter.com/matthewvenn)
 
 [1]: https://en.wikipedia.org/wiki/Collatz_conjecture
-[2]: https://pcbarina.fit.vutbr.cz/path-records.htm
+[2]: http://www.ericr.nl/wondrous/pathrecs.html
 [3]: https://github.com/rtfb/tt05-collatz/blob/main/src/test.py#L191
 [4]: https://github.com/rtfb/tt05-collatz/blob/main/src/test.py#L206
 [5]: https://github.com/rtfb/tt05-collatz/blob/main/src/test.py#L212
