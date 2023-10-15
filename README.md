@@ -18,7 +18,7 @@ optimisation).
 ## Using the chip
 
 The module can be in 2 states: IO and COMPUTE. After reset, the chip will be in
-IO mode. Since the input is intended to be much larger that the available pins,
+IO mode. Since the input is intended to be much larger than the available pins,
 the input number is uploaded one byte at a time, increasing the address of where
 in the internal 144-bit-wide register that byte should be stored.
 
