@@ -2,6 +2,7 @@
 
 # Collatz conjecture brute-forcer
 
+
 A hardware implementation of a brute-force checker for [Collatz conjecture][1].
 It takes an integer number as an input and computes the Collatz sequence until
 it reaches 1. When it does, it allows reading back two numbers:
