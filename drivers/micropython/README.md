@@ -45,8 +45,10 @@ can avoid using the slow `clock_project_once()` function during IO.
 
 ---
 
-The scripts are based on the original test [script][1] written by @MichaelBell.
+The scripts are based on the original test [script][1] written by
+[@MichaelBell][4].
 
 [1]: https://github.com/MichaelBell/tt-micropython-scripts/blob/main/collatz.py
 [2]: https://github.com/TinyTapeout/tt-micropython-firmware
 [3]: https://github.com/TinyTapeout/tt-micropython-firmware/releases/tag/v1.2.0
+[4]: https://github.com/MichaelBell
