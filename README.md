@@ -17,6 +17,8 @@ optimisation).
 
 ## Using the chip
 
+(See [drivers README][6] for scripts that can utilize the chip).
+
 The module can be in 2 states: IO and COMPUTE. After reset, the chip will be in
 IO mode. Since the input is intended to be much larger than the available pins,
 the input number is uploaded one byte at a time, increasing the address of where
@@ -76,3 +78,4 @@ To learn more and get started, visit https://tinytapeout.com.
 [3]: https://github.com/rtfb/tt05-collatz/blob/main/src/test.py#L191
 [4]: https://github.com/rtfb/tt05-collatz/blob/main/src/test.py#L206
 [5]: https://github.com/rtfb/tt05-collatz/blob/main/src/test.py#L212
+[6]: https://github.com/rtfb/tt05-collatz/blob/main/drivers/micropython/README.md
